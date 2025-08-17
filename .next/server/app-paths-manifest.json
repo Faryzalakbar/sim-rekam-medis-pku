@@ -1,0 +1,12 @@
+{
+  "/rekam-medis/page": "app/rekam-medis/page.js",
+  "/api/kunjungan/route": "app/api/kunjungan/route.js",
+  "/api/rekam-medis/route": "app/api/rekam-medis/route.js",
+  "/kunjungan/page": "app/kunjungan/page.js",
+  "/pasien/page": "app/pasien/page.js",
+  "/pasien/tambah/page": "app/pasien/tambah/page.js",
+  "/api/kunjungan/[id]/route": "app/api/kunjungan/[id]/route.js",
+  "/rekam-medis/tambah/page": "app/rekam-medis/tambah/page.js",
+  "/api/obat/route": "app/api/obat/route.js",
+  "/api/rekam-medis/[id]/pdf/route": "app/api/rekam-medis/[id]/pdf/route.js"
+}

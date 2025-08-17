@@ -1,0 +1,252 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+
+enum Role {
+  ADMIN
+  DOKTER
+  APOTIK
+  PEGAWAI
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum VisitStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PrescriptionStatus {
+  PENDING
+  PREPARED
+  READY
+  COMPLETED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  SICK
+  LEAVE
+}
+
+enum StatusPerkawinan {
+  BELUM_KAWIN
+  KAWIN
+  CERAI_HIDUP
+  CERAI_MATI
+}
+
+enum Agama {
+  ISLAM
+  KRISTEN
+  KATOLIK
+  HINDU
+  BUDDHA
+  KONGHUCU
+}
+
+// --- MODELS ---
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  attendances   Attendance[]
+  medicalRecords MedicalRecord[]
+  prescriptions Prescription[]
+
+  @@index([createdAt]) // Indeks untuk pengurutan
+  @@map("users")
+}
+
+model Patient {
+  id               String    @id @default(cuid())
+  noRekamMedis     String    @unique
+  nik              String?   @unique
+  name             String
+  tempatLahir      String?
+  birthDate        DateTime
+  gender           Gender
+  address          String?
+  phone            String?
+  email            String?   @unique
+  bloodType        String?
+  allergies        String?   @db.Text
+  emergencyContact String?
+  pekerjaan        String?
+  statusPerkawinan StatusPerkawinan?
+  agama            Agama?
+  jenisAsuransi    String?
+  noAsuransi       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  visits         Visit[]
+  medicalRecords MedicalRecord[]
+  prescriptions  Prescription[]
+
+  @@index([name]) // Indeks untuk pencarian nama
+  @@index([noRekamMedis]) // Indeks untuk pencarian No. RM
+  @@map("patients")
+}
+
+model Visit {
+  id              String      @id @default(cuid())
+  patientId       String
+  noRekamMedis    String
+  visitDate       DateTime    @default(now())
+  complaint       String?     @db.Text
+  klinikTujuan    String?
+  alasanKunjungan String?
+  jenisAsuransi   String?
+  vitalSigns      Json?       // Tanda Vital (Tensi, Nadi, Suhu, dll)
+  notes           String?
+  status          VisitStatus @default(WAITING)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  patient         Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  medicalRecord   MedicalRecord? // Relasi 1-1 dengan MedicalRecord
+
+  @@index([visitDate]) // Indeks untuk filter tanggal
+  @@map("visits")
+}
+
+model MedicalRecord {
+  id            String   @id @default(cuid())
+  patientId     String
+  noRekamMedis  String
+  visitId       String   @unique // Setiap kunjungan hanya punya 1 rekam medis
+  doctorId      String
+  
+  // --- SOAP (Subjective, Objective, Assessment, Plan) ---
+  subjective    String?  @db.Text
+  objective     String?  @db.Text
+  assessment    String   @db.Text
+  plan          String   @db.Text
+
+  // --- Asesmen Lanjutan ---
+  hubunganKeluarga      String?
+  statusPsikologis      Json?
+  statusFungsional      Json?
+  skriningGizi          Json?
+  asesmenNyeri          Json?
+  risikoJatuh           String?
+  masalahKeperawatan    Json?
+  rencanaIntervensi     Json?
+  
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // --- Relations ---
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visit         Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  doctor        User     @relation(fields: [doctorId], references: [id])
+  prescriptions Prescription[]
+
+  @@index([createdAt]) // Indeks untuk pengurutan
+  @@map("medical_records")
+}
+
+
+model Medicine {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  name              String
+  type              String?
+  unit              String
+  price             Float
+  stock             Int      @default(0)
+  minStock          Int      @default(10)
+  expiryDate        DateTime
+  description       String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  prescriptionItems PrescriptionItem[]
+
+  @@index([name]) // Indeks untuk pencarian nama
+  @@map("medicines")
+}
+
+model Prescription {
+  id              String             @id @default(cuid())
+  medicalRecordId String
+  noRekamMedis    String
+  doctorId        String
+  patientId       String
+  instructions    String?            @db.Text
+  status          PrescriptionStatus @default(PENDING)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  // Relations
+  medicalRecord   MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+  doctor          User          @relation(fields: [doctorId], references: [id])
+  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  items           PrescriptionItem[]
+
+  @@index([createdAt]) // Indeks untuk pengurutan
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             String   @id @default(cuid())
+  prescriptionId String
+  medicineId     String
+  quantity       Int
+  dosage         String   // cth: "3x1"
+  notes          String?  // cth: "Sesudah makan"
+
+  // Relations
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicine       Medicine     @relation(fields: [medicineId], references: [id])
+
+  @@map("prescription_items")
+}
+
+model Attendance {
+  id        String           @id @default(cuid())
+  userId    String
+  date      DateTime         @db.Date
+  checkIn   DateTime?
+  checkOut  DateTime?
+  status    AttendanceStatus @default(PRESENT)
+  notes     String?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Relations
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date]) // Indeks untuk filter tanggal absensi
+  @@map("attendances")
+}
