@@ -1,0 +1,40 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    container_name: sim-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"   # kalau Express.js
+      # - "8000:8000" # kalau Laravel
+    volumes:
+      - .:/usr/src/app
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 121212
+      MYSQL_DATABASE: xrmsims
+      MYSQL_USER: simuser
+      MYSQL_PASSWORD: simpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: pma
+    restart: always
+    environment:
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: 121212
+    ports:
+      - "8080:80"
+
+volumes:
+  db_data:
