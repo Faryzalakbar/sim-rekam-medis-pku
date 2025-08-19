@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 
+// TAMBAHKAN BARIS INI untuk membuat route menjadi dinamis
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -14,8 +17,6 @@ export async function GET(request: NextRequest) {
     let stats: any = {}
 
     if (role === 'ADMIN') {
-      // PERBAIKAN FINAL: Menyesuaikan semua nama model dan field
-      // agar cocok dengan file schema.prisma Anda.
       const [
         totalPasien,
         kunjunganHariIni,
@@ -23,10 +24,7 @@ export async function GET(request: NextRequest) {
         pegawaiHadir,
         pegawaiTotal
       ] = await Promise.all([
-        // Model: Patient
         prisma.patient.count(),
-        
-        // Model: Visit, Field: visitDate
         prisma.visit.count({
           where: {
             visitDate: {
@@ -35,15 +33,11 @@ export async function GET(request: NextRequest) {
             }
           }
         }),
-        
-        // Model: Medicine, Field: stock
         prisma.medicine.count({
           where: {
             stock: { lt: 20 }
           }
         }),
-        
-        // Model: Attendance, Field: date, Enum: PRESENT, LATE
         prisma.attendance.count({
           where: {
             date: {
@@ -53,8 +47,6 @@ export async function GET(request: NextRequest) {
             status: { in: ['PRESENT', 'LATE'] }
           }
         }),
-        
-        // Model: User, Enum: DOKTER, APOTIK, PEGAWAI
         prisma.user.count({
           where: {
             role: { in: ['DOKTER', 'APOTIK', 'PEGAWAI'] },
@@ -70,7 +62,6 @@ export async function GET(request: NextRequest) {
         pegawaiTotal
       }
     }
-    // Tambahkan logika untuk role lain jika perlu
 
     return NextResponse.json({
       success: true,

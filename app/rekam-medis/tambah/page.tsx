@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/layout/sidebar'
 import Navbar from '@/components/layout/navbar'
@@ -22,31 +22,26 @@ import { debounce } from 'lodash'
 interface User { id: string; name: string; role: string; }
 interface Patient { id: string; name: string; noRekamMedis: string; }
 interface Visit { id: string; patientId: string; complaint: string | null; patient: Patient; }
-// PERBAIKAN: Tambahkan 'description' ke tipe Medicine
 interface Medicine { id: string; name: string; stock: number; unit: string; description?: string; }
 interface PrescriptionItem { medicineId: string; name: string; quantity: number; dosage: string; notes?: string; }
 
-export default function TambahRekamMedisLengkapPage() {
+// Komponen utama dipisahkan agar bisa dibungkus Suspense
+function TambahRekamMedisForm() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
   const [visit, setVisit] = useState<Visit | null>(null)
   
-  // State komprehensif untuk semua data rekam medis
   const [formData, setFormData] = useState({
-    // Pengkajian Awal
     hubunganKeluarga: '',
     statusPsikologis: { tenang: false, cemas: false, takut: false, marah: false, sedih: false, lainLain: false, lainLainText: '' },
     statusFungsional: { mandiri: false, perluBantuan: false, bantuanText: '' },
     skriningGizi: { penurunanBB: false, nafsuMakanTurun: false },
-    // Tanda Vital & Asesmen Lanjutan
     vitalSigns: { suhu: '', nadi: '', respirasi: '', tekananDarah: '' },
     asesmenNyeri: { tingkat: '', skala: '' },
     risikoJatuh: '',
-    // Masalah & Rencana Keperawatan
     masalahKeperawatan: { kurangPengetahuan: false, gizi: false, infeksi: false, nyeriAkut: false, cemas: false },
     rencanaIntervensi: { edukasi: false, edukasiGizi: false, pengawasanJatuh: false, perawatanLuka: false, manajemenNyeri: false },
-    // SOAP Dokter
     subjective: '',
     objective: '',
     assessment: '',
@@ -56,17 +51,19 @@ export default function TambahRekamMedisLengkapPage() {
   const [prescriptionItems, setPrescriptionItems] = useState<PrescriptionItem[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [availableMedicines, setAvailableMedicines] = useState<Medicine[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
 
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   const kunjunganId = searchParams.get('kunjunganId')
 
-  // --- Functions ---
-
   const fetchVisitData = useCallback(async () => {
-    if (!kunjunganId) return;
+    if (!kunjunganId) {
+        setPageLoading(false);
+        toast({ title: "Error", description: "ID Kunjungan tidak ditemukan di URL.", variant: "destructive" });
+        router.push('/rekam-medis');
+        return;
+    };
     try {
       const response = await fetch(`/api/kunjungan/${kunjunganId}`);
       const result = await response.json();
@@ -96,8 +93,6 @@ export default function TambahRekamMedisLengkapPage() {
 
   const debouncedSearch = useCallback(debounce((term) => fetchMedicines(term), 300), [fetchMedicines]);
 
-  // --- useEffect Hooks ---
-
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) setUser(JSON.parse(userData));
@@ -108,8 +103,6 @@ export default function TambahRekamMedisLengkapPage() {
   useEffect(() => {
     if (isModalOpen) fetchMedicines();
   }, [isModalOpen, fetchMedicines]);
-
-  // --- Event Handlers ---
 
   const handleNestedChange = (parentKey: keyof typeof formData, childKey: string, value: any) => {
     setFormData(prev => ({
@@ -189,7 +182,6 @@ export default function TambahRekamMedisLengkapPage() {
                 </div>
             </div>
             
-            {/* --- Pengkajian Awal --- */}
             <Card>
               <CardHeader><CardTitle>1. Pengkajian Awal Keperawatan</CardTitle></CardHeader>
               <CardContent className="space-y-6">
@@ -210,7 +202,6 @@ export default function TambahRekamMedisLengkapPage() {
               </CardContent>
             </Card>
 
-            {/* --- Tanda Vital & Asesmen Lanjutan --- */}
             <Card>
               <CardHeader><CardTitle>2. Tanda Vital & Asesmen Lanjutan</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -223,7 +214,6 @@ export default function TambahRekamMedisLengkapPage() {
               </CardContent>
             </Card>
             
-            {/* --- Pemeriksaan Dokter (SOAP) --- */}
             <Card>
               <CardHeader><CardTitle>3. Pemeriksaan Dokter (SOAP)</CardTitle></CardHeader>
               <CardContent className="space-y-4">
@@ -234,7 +224,6 @@ export default function TambahRekamMedisLengkapPage() {
               </CardContent>
             </Card>
 
-            {/* --- Resep Obat --- */}
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -246,12 +235,10 @@ export default function TambahRekamMedisLengkapPage() {
                         <div className="relative my-4"><Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" /><Input placeholder="Cari obat..." className="pl-10" onChange={(e) => debouncedSearch(e.target.value)} /></div>
                         <div className="max-h-[60vh] overflow-y-auto">
                           <Table>
-                            {/* PERBAIKAN: Tambahkan kolom Deskripsi / Catatan */}
                             <TableHeader><TableRow><TableHead className="w-[30%]">Nama Obat</TableHead><TableHead className="w-[40%]">Deskripsi / Catatan</TableHead><TableHead>Stok</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                             <TableBody>{availableMedicines.map(med => (
                                 <TableRow key={med.id}>
                                     <TableCell className="font-medium">{med.name}</TableCell>
-                                    {/* PERBAIKAN: Tampilkan deskripsi obat */}
                                     <TableCell className="text-sm text-gray-500">{med.description || '-'}</TableCell>
                                     <TableCell>{med.stock} {med.unit}</TableCell>
                                     <TableCell><Button size="sm" onClick={() => addMedicineToPrescription(med)}>Tambah</Button></TableCell>
@@ -271,7 +258,7 @@ export default function TambahRekamMedisLengkapPage() {
                       <div className="col-span-12 font-medium">{item.name}</div>
                       <div className="col-span-3"><Label>Jumlah</Label><Input type="number" min="1" value={item.quantity} onChange={(e) => updatePrescriptionItem(index, 'quantity', parseInt(e.target.value) || 1)} /></div>
                       <div className="col-span-4"><Label>Dosis</Label><Input value={item.dosage} onChange={(e) => updatePrescriptionItem(index, 'dosage', e.target.value)} /></div>
-                      <div className="col-span-4"><Label>Catatan</Label><Input placeholder="Cth: Sesudah makan" value={item.notes} onChange={(e) => updatePrescriptionItem(index, 'notes', e.target.value)} /></div>
+                      <div className="col-span-4"><Label>Catatan</Label><Input placeholder="Cth: Sesudah makan" value={item.notes || ''} onChange={(e) => updatePrescriptionItem(index, 'notes', e.target.value)} /></div>
                       <div className="col-span-1 flex items-end h-full"><Button type="button" variant="destructive" size="icon" onClick={() => setPrescriptionItems(prev => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button></div>
                     </div>
                   ))
@@ -285,4 +272,20 @@ export default function TambahRekamMedisLengkapPage() {
       </div>
     </div>
   )
+}
+
+// Komponen pembungkus yang diekspor sebagai default
+export default function TambahRekamMedisPage() {
+  // UI yang ditampilkan saat Suspense menunggu
+  const loadingFallback = (
+    <div className="flex h-screen items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin" />
+    </div>
+  );
+
+  return (
+    <Suspense fallback={loadingFallback}>
+      <TambahRekamMedisForm />
+    </Suspense>
+  );
 }
